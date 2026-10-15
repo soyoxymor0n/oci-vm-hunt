@@ -1,0 +1,43 @@
+name: Hunt
+
+# Tries to create an Always Free Ampere A1 VM until Oracle has capacity, then disables itself.
+# Everything identifying lives in repository secrets (see README.md); logs print no identifiers.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: hunt
+  cancel-in-progress: false
+
+jobs:
+  hunt:
+    if: github.repository == 'soyoxymor0n/oci-vm-hunt'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Try to get the VM
+        id: grab
+        env:
+          OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+          OCI_IMAGE_OCID: ${{ secrets.OCI_IMAGE_OCID }}
+          OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+          OCI_AVAILABILITY_DOMAIN: ${{ secrets.OCI_AVAILABILITY_DOMAIN }}
+        run: node oci-grab-vm.mjs
+      - name: Stop hunting
+        if: steps.grab.outputs.state == 'created' || steps.grab.outputs.state == 'exists'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow disable hunt.yml --repo "$GITHUB_REPOSITORY"

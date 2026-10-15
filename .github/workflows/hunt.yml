@@ -35,6 +35,8 @@ jobs:
           OCI_IMAGE_OCID: ${{ secrets.OCI_IMAGE_OCID }}
           OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
           OCI_AVAILABILITY_DOMAIN: ${{ secrets.OCI_AVAILABILITY_DOMAIN }}
+          OCI_RESEND_API_KEY: ${{ secrets.OCI_RESEND_API_KEY }}
+          OCI_NOTIFY_EMAIL: ${{ secrets.OCI_NOTIFY_EMAIL }}
         run: node oci-grab-vm.mjs
       - name: Stop hunting
         if: steps.grab.outputs.state == 'created' || steps.grab.outputs.state == 'exists'

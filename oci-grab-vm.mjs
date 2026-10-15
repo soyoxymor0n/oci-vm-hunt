@@ -255,7 +255,28 @@ function setOutput(name, value) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
 }
 
+/** Optional email through Resend when a VM was secured. Never throws: a mail problem must not hide the result. */
+async function notify(text) {
+  const key = process.env.OCI_RESEND_API_KEY;
+  const to = process.env.OCI_NOTIFY_EMAIL;
+  if (!key || !to) return;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: process.env.OCI_NOTIFY_FROM || 'oci-hunt@regops.systems', to: [to], subject: 'Oracle VM secured', text }),
+    });
+    console.log(res.ok ? 'notification sent' : `notification failed: HTTP ${res.status}`);
+  } catch (e) {
+    console.log(`notification failed: ${String(e.message ?? e)}`);
+  }
+}
+
 async function main() {
+  if (process.argv.includes('--notify-test')) {
+    await notify('Test message from the Oracle VM hunt. If you read this, a real success will reach you too.');
+    return;
+  }
   const { cfg, auth } = authFromEnv();
   const result = await attempt({ cfg, auth, check: process.argv.includes('--check') });
   setOutput('state', result.state);
@@ -266,6 +287,7 @@ async function main() {
     missing: 'instance does not exist yet',
   }[result.state];
   console.log(msg);
+  if (result.state === 'created') await notify(msg);
 }
 
 if (process.argv[1]?.endsWith('oci-grab-vm.mjs')) {
